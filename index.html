@@ -24,6 +24,7 @@
         button.btn-create { background-color: #007bff; color: white; }
         button.btn-save { background-color: #28a745; color: white; }
         #qrcode-container { margin-top: 10px; display: flex; justify-content: center; }
+        canvas { max-width: 100%; height: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.15); border-radius: 8px; }
     </style>
 </head>
 <body>
@@ -31,10 +32,9 @@
     
     <div class="controls">
         <label><strong>1. Nhập đường link:</strong></label>
-        <!-- Đường link mặc định đã được xóa ở dòng dưới đây -->
         <input type="text" id="linkInput" placeholder="Dán đường link vào đây...">
         
-        <label><strong>2. Tải logo lên (Bắt buộc để lưu được ảnh):</strong></label>
+        <label><strong>2. Tải logo lên (Bắt buộc để lưu ảnh):</strong></label>
         <input type="file" id="logoInput" accept="image/*">
         
         <label><strong>3. Tùy chọn màu logo:</strong></label>
@@ -57,6 +57,23 @@
         var finalCanvas = null;
         var uploadedLogoSrc = null;
 
+        // Hàm hỗ trợ vẽ khung bo tròn góc
+        function drawRoundRect(ctx, x, y, width, height, radius, isStroke) {
+            ctx.beginPath();
+            ctx.moveTo(x + radius, y);
+            ctx.lineTo(x + width - radius, y);
+            ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+            ctx.lineTo(x + width, y + height - radius);
+            ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+            ctx.lineTo(x + radius, y + height);
+            ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+            ctx.lineTo(x, y + radius);
+            ctx.quadraticCurveTo(x, y, x + radius, y);
+            ctx.closePath();
+            if (isStroke) ctx.stroke();
+            else ctx.fill();
+        }
+
         document.getElementById('logoInput').addEventListener('change', function(e) {
             var file = e.target.files[0];
             if (file) {
@@ -76,12 +93,16 @@
 
             if (!link) return;
 
+            // Mã màu xanh chủ đạo giống Zalo
+            var primaryColor = "#092e5d";
+
+            // 1. Tạo QR thô (chuyển sang màu xanh đậm cho đồng bộ)
             var tempDiv = document.createElement("div");
             new QRCode(tempDiv, {
                 text: link,
-                width: 300,
-                height: 300,
-                colorDark : "#000000",
+                width: 280,
+                height: 280,
+                colorDark : primaryColor,
                 colorLight : "#ffffff",
                 correctLevel : QRCode.CorrectLevel.H 
             });
@@ -91,22 +112,70 @@
                 if (!qrCanvas) return;
 
                 finalCanvas = document.createElement("canvas");
-                finalCanvas.width = qrCanvas.width;
-                finalCanvas.height = qrCanvas.height;
+                finalCanvas.width = 400; 
+                finalCanvas.height = 400; 
+                
                 var ctx = finalCanvas.getContext("2d");
 
-                ctx.drawImage(qrCanvas, 0, 0);
+                // 2. Vẽ nền xanh đậm toàn bộ khung hình
+                ctx.fillStyle = primaryColor; 
+                ctx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
 
+                // 3. Vẽ đường viền trắng bên ngoài
+                ctx.strokeStyle = "#ffffff";
+                ctx.lineWidth = 4;
+                drawRoundRect(ctx, 20, 20, 360, 360, 15, true);
+
+                // 4. Che đi các đoạn giữa của viền trắng để lấy chỗ ghi chữ
+                ctx.fillStyle = primaryColor;
+                ctx.fillRect(150, 10, 100, 20); // Top
+                ctx.fillRect(150, 370, 100, 20); // Bottom
+                ctx.fillRect(10, 150, 20, 100); // Left
+                ctx.fillRect(370, 150, 20, 100); // Right
+
+                // 5. Thêm chữ SCAN ME vào 4 góc
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "bold 14px Arial, sans-serif";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+
+                // Chữ trên & dưới
+                ctx.fillText("SCAN ME", 200, 20);
+                ctx.fillText("SCAN ME", 200, 380);
+
+                // Chữ trái (xoay -90 độ)
+                ctx.save();
+                ctx.translate(20, 200);
+                ctx.rotate(-Math.PI / 2);
+                ctx.fillText("SCAN ME", 0, 0);
+                ctx.restore();
+
+                // Chữ phải (xoay 90 độ)
+                ctx.save();
+                ctx.translate(380, 200);
+                ctx.rotate(Math.PI / 2);
+                ctx.fillText("SCAN ME", 0, 0);
+                ctx.restore();
+
+                // 6. Vẽ ô nền trắng lót cho QR Code ở trung tâm
+                ctx.fillStyle = "#ffffff";
+                drawRoundRect(ctx, 45, 45, 310, 310, 12, false);
+
+                // 7. Dán mã QR Code lên nền trắng
+                ctx.drawImage(qrCanvas, 60, 60);
+
+                // 8. Xử lý lồng Logo SCE vào chính giữa
                 if (uploadedLogoSrc) {
                     var logo = new Image();
                     logo.onload = function() {
-                        var logoSize = 80; 
-                        var padding = 6;   
+                        var logoSize = 70; 
+                        var logoPadding = 6;   
                         var x = (finalCanvas.width - logoSize) / 2;
                         var y = (finalCanvas.height - logoSize) / 2;
 
+                        // Khung trắng lót logo bo tròn góc
                         ctx.fillStyle = "#ffffff";
-                        ctx.fillRect(x - padding, y - padding, logoSize + padding * 2, logoSize + padding * 2);
+                        drawRoundRect(ctx, x - logoPadding, y - logoPadding, logoSize + logoPadding * 2, logoSize + logoPadding * 2, 8, false);
 
                         var colorMode = document.querySelector('input[name="logoColor"]:checked').value;
                         if (colorMode === 'bw') {
@@ -129,7 +198,7 @@
 
         function downloadQR() {
             if (!finalCanvas) {
-                alert("Vui lòng tạo mã QR trước!");
+                alert("Vui lòng dán link để tạo mã QR trước!");
                 return;
             }
             if (!uploadedLogoSrc) {
