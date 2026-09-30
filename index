@@ -31,7 +31,8 @@
     
     <div class="controls">
         <label><strong>1. Nhập đường link:</strong></label>
-        <input type="text" id="linkInput" placeholder="Dán đường link vào đây..." value="https://docs.google.com/forms/d/e/1FAIpQLScwL5AhVwgAk065vQMAqMvY-Uu-ASdwLDY4kCLKixbFoCu8Qg/viewform">
+        <!-- Đường link mặc định đã được xóa ở dòng dưới đây -->
+        <input type="text" id="linkInput" placeholder="Dán đường link vào đây...">
         
         <label><strong>2. Tải logo lên (Bắt buộc để lưu được ảnh):</strong></label>
         <input type="file" id="logoInput" accept="image/*">
@@ -56,7 +57,6 @@
         var finalCanvas = null;
         var uploadedLogoSrc = null;
 
-        // Đọc file logo khi người dùng tải lên
         document.getElementById('logoInput').addEventListener('change', function(e) {
             var file = e.target.files[0];
             if (file) {
@@ -108,7 +108,6 @@
                         ctx.fillStyle = "#ffffff";
                         ctx.fillRect(x - padding, y - padding, logoSize + padding * 2, logoSize + padding * 2);
 
-                        // Kiểm tra chế độ màu người dùng chọn
                         var colorMode = document.querySelector('input[name="logoColor"]:checked').value;
                         if (colorMode === 'bw') {
                             ctx.filter = 'grayscale(100%)'; 
@@ -117,7 +116,7 @@
                         }
                         
                         ctx.drawImage(logo, x, y, logoSize, logoSize);
-                        ctx.filter = 'none'; // Trả lại trạng thái mặc định
+                        ctx.filter = 'none'; 
 
                         container.appendChild(finalCanvas);
                     };
