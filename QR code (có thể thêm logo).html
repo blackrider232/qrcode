@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Phần mềm tạo QR Code</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; margin-top: 30px; }
+        .controls { 
+            display: inline-block; 
+            text-align: left; 
+            background: #f4f6f9; 
+            padding: 20px; 
+            border-radius: 8px; 
+            border: 1px solid #ddd; 
+            margin-bottom: 20px;
+        }
+        input[type="text"] { padding: 10px; width: 350px; font-size: 16px; margin-top: 5px; margin-bottom: 15px; display: block; border: 1px solid #ccc; border-radius: 4px; }
+        input[type="file"] { margin-top: 5px; font-size: 15px; margin-bottom: 15px; display: block; }
+        .radio-group { margin-top: 5px; }
+        .radio-group label { cursor: pointer; margin-right: 15px; font-size: 15px; }
+        .btn-group { margin-bottom: 20px; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; margin: 0 5px; border-radius: 4px; border: none; font-weight: bold; }
+        button.btn-create { background-color: #007bff; color: white; }
+        button.btn-save { background-color: #28a745; color: white; }
+        #qrcode-container { margin-top: 10px; display: flex; justify-content: center; }
+    </style>
+</head>
+<body>
+    <h2>Trình tạo mã QR</h2>
+    
+    <div class="controls">
+        <label><strong>1. Nhập đường link:</strong></label>
+        <input type="text" id="linkInput" placeholder="Dán đường link vào đây..." value="https://docs.google.com/forms/d/e/1FAIpQLScwL5AhVwgAk065vQMAqMvY-Uu-ASdwLDY4kCLKixbFoCu8Qg/viewform">
+        
+        <label><strong>2. Tải logo lên (Bắt buộc để lưu được ảnh):</strong></label>
+        <input type="file" id="logoInput" accept="image/*">
+        
+        <label><strong>3. Tùy chọn màu logo:</strong></label>
+        <div class="radio-group">
+            <input type="radio" id="colorMode" name="logoColor" value="color" checked onchange="generateQR()">
+            <label for="colorMode">Có màu</label>
+            <input type="radio" id="bwMode" name="logoColor" value="bw" onchange="generateQR()">
+            <label for="bwMode">Đen trắng</label>
+        </div>
+    </div>
+
+    <div class="btn-group">
+        <button class="btn-create" onclick="generateQR()">Tạo mã QR</button>
+        <button class="btn-save" onclick="downloadQR()">Lưu hình ảnh</button>
+    </div>
+    
+    <div id="qrcode-container"></div>
+
+    <script>
+        var finalCanvas = null;
+        var uploadedLogoSrc = null;
+
+        // Đọc file logo khi người dùng tải lên
+        document.getElementById('logoInput').addEventListener('change', function(e) {
+            var file = e.target.files[0];
+            if (file) {
+                var reader = new FileReader();
+                reader.onload = function(event) {
+                    uploadedLogoSrc = event.target.result;
+                    generateQR();
+                }
+                reader.readAsDataURL(file);
+            }
+        });
+
+        function generateQR() {
+            var link = document.getElementById("linkInput").value;
+            var container = document.getElementById("qrcode-container");
+            container.innerHTML = ""; 
+
+            if (!link) return;
+
+            var tempDiv = document.createElement("div");
+            new QRCode(tempDiv, {
+                text: link,
+                width: 300,
+                height: 300,
+                colorDark : "#000000",
+                colorLight : "#ffffff",
+                correctLevel : QRCode.CorrectLevel.H 
+            });
+
+            setTimeout(function() {
+                var qrCanvas = tempDiv.querySelector("canvas");
+                if (!qrCanvas) return;
+
+                finalCanvas = document.createElement("canvas");
+                finalCanvas.width = qrCanvas.width;
+                finalCanvas.height = qrCanvas.height;
+                var ctx = finalCanvas.getContext("2d");
+
+                ctx.drawImage(qrCanvas, 0, 0);
+
+                if (uploadedLogoSrc) {
+                    var logo = new Image();
+                    logo.onload = function() {
+                        var logoSize = 80; 
+                        var padding = 6;   
+                        var x = (finalCanvas.width - logoSize) / 2;
+                        var y = (finalCanvas.height - logoSize) / 2;
+
+                        ctx.fillStyle = "#ffffff";
+                        ctx.fillRect(x - padding, y - padding, logoSize + padding * 2, logoSize + padding * 2);
+
+                        // Kiểm tra chế độ màu người dùng chọn
+                        var colorMode = document.querySelector('input[name="logoColor"]:checked').value;
+                        if (colorMode === 'bw') {
+                            ctx.filter = 'grayscale(100%)'; 
+                        } else {
+                            ctx.filter = 'none';
+                        }
+                        
+                        ctx.drawImage(logo, x, y, logoSize, logoSize);
+                        ctx.filter = 'none'; // Trả lại trạng thái mặc định
+
+                        container.appendChild(finalCanvas);
+                    };
+                    logo.src = uploadedLogoSrc;
+                } else {
+                    container.appendChild(finalCanvas);
+                }
+            }, 100);
+        }
+
+        function downloadQR() {
+            if (!finalCanvas) {
+                alert("Vui lòng tạo mã QR trước!");
+                return;
+            }
+            if (!uploadedLogoSrc) {
+                alert("Vui lòng nhấn nút 'Chọn tệp' để tải logo lên trước thì mới lưu được ảnh có logo!");
+                return;
+            }
+
+            var image = finalCanvas.toDataURL("image/png");
+            var link = document.createElement("a");
+            link.download = "QRCode_SCE.png";
+            link.href = image;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        window.onload = generateQR;
+    </script>
+</body>
+</html>
