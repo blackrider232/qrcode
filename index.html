@@ -14,11 +14,13 @@
             border-radius: 8px; 
             border: 1px solid #ddd; 
             margin-bottom: 20px;
+            width: 380px;
         }
-        input[type="text"] { padding: 10px; width: 350px; font-size: 16px; margin-top: 5px; margin-bottom: 15px; display: block; border: 1px solid #ccc; border-radius: 4px; }
-        input[type="file"] { margin-top: 5px; font-size: 15px; margin-bottom: 15px; display: block; }
+        label { display: block; margin-top: 15px; margin-bottom: 5px; }
+        input[type="text"], select { padding: 10px; width: 100%; box-sizing: border-box; font-size: 15px; border: 1px solid #ccc; border-radius: 4px; }
+        input[type="file"] { margin-top: 5px; font-size: 15px; display: block; }
         .radio-group { margin-top: 5px; }
-        .radio-group label { cursor: pointer; margin-right: 15px; font-size: 15px; }
+        .radio-group label { cursor: pointer; margin-right: 15px; font-size: 15px; display: inline-block; margin-top: 0; }
         .btn-group { margin-bottom: 20px; }
         button { padding: 10px 20px; font-size: 16px; cursor: pointer; margin: 0 5px; border-radius: 4px; border: none; font-weight: bold; }
         button.btn-create { background-color: #007bff; color: white; }
@@ -44,6 +46,20 @@
             <input type="radio" id="bwMode" name="logoColor" value="bw" onchange="generateQR()">
             <label for="bwMode">Đen trắng</label>
         </div>
+
+        <label><strong>4. Kiểu viền QR:</strong></label>
+        <select id="frameStyle" onchange="generateQR()">
+            <option value="1">1. Viền xanh Zalo (Đứt khúc)</option>
+            <option value="2">2. Viền đen cổ điển</option>
+            <option value="3">3. Viền góc quét (Scanner)</option>
+            <option value="4">4. Viền nét đứt nhẹ nhàng</option>
+            <option value="5">5. Khung tiêu đề trên (Xanh)</option>
+            <option value="6">6. Khung ảnh Polaroid (Cổ điển)</option>
+            <option value="7">7. Viền kép tinh tế (Xanh lá)</option>
+            <option value="8">8. Viền Gradient (Đỏ - Tím)</option>
+            <option value="9">9. Viền bo tròn tối giản (Xám)</option>
+            <option value="10">10. Cảnh báo đỏ (Nổi bật)</option>
+        </select>
     </div>
 
     <div class="btn-group">
@@ -74,6 +90,15 @@
             else ctx.fill();
         }
 
+        // Hàm hỗ trợ vẽ các góc vuông định vị (Viewfinder)
+        function drawCorners(ctx, x, y, w, h, size, weight) {
+            ctx.lineWidth = weight;
+            ctx.beginPath(); ctx.moveTo(x, y+size); ctx.lineTo(x, y); ctx.lineTo(x+size, y); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x+w-size, y); ctx.lineTo(x+w, y); ctx.lineTo(x+w, y+size); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x, y+h-size); ctx.lineTo(x, y+h); ctx.lineTo(x+size, y+h); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x+w-size, y+h); ctx.lineTo(x+w, y+h); ctx.lineTo(x+w, y+h-size); ctx.stroke();
+        }
+
         document.getElementById('logoInput').addEventListener('change', function(e) {
             var file = e.target.files[0];
             if (file) {
@@ -89,20 +114,24 @@
         function generateQR() {
             var link = document.getElementById("linkInput").value;
             var container = document.getElementById("qrcode-container");
+            var frameStyle = document.getElementById("frameStyle").value;
             container.innerHTML = ""; 
 
             if (!link) return;
 
-            // Mã màu xanh chủ đạo giống Zalo
-            var primaryColor = "#092e5d";
+            // Xác định màu nét quét dựa trên kiểu viền
+            var qrColor = "#000000"; 
+            if (frameStyle === "1") qrColor = "#092e5d";
+            if (frameStyle === "5") qrColor = "#007bff";
+            if (frameStyle === "7") qrColor = "#1e7e34";
+            if (frameStyle === "10") qrColor = "#dc3545";
 
-            // 1. Tạo QR thô (chuyển sang màu xanh đậm cho đồng bộ)
             var tempDiv = document.createElement("div");
             new QRCode(tempDiv, {
                 text: link,
                 width: 280,
                 height: 280,
-                colorDark : primaryColor,
+                colorDark : qrColor,
                 colorLight : "#ffffff",
                 correctLevel : QRCode.CorrectLevel.H 
             });
@@ -114,66 +143,123 @@
                 finalCanvas = document.createElement("canvas");
                 finalCanvas.width = 400; 
                 finalCanvas.height = 400; 
-                
                 var ctx = finalCanvas.getContext("2d");
 
-                // 2. Vẽ nền xanh đậm toàn bộ khung hình
-                ctx.fillStyle = primaryColor; 
-                ctx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
+                // Biến định vị gốc cho mã QR
+                var qrX = 60;
+                var qrY = 60;
 
-                // 3. Vẽ đường viền trắng bên ngoài
-                ctx.strokeStyle = "#ffffff";
-                ctx.lineWidth = 4;
-                drawRoundRect(ctx, 20, 20, 360, 360, 15, true);
-
-                // 4. Che đi các đoạn giữa của viền trắng để lấy chỗ ghi chữ
-                ctx.fillStyle = primaryColor;
-                ctx.fillRect(150, 10, 100, 20); // Top
-                ctx.fillRect(150, 370, 100, 20); // Bottom
-                ctx.fillRect(10, 150, 20, 100); // Left
-                ctx.fillRect(370, 150, 20, 100); // Right
-
-                // 5. Thêm chữ SCAN ME vào 4 góc
+                // XÓA PHÔNG NỀN MẶC ĐỊNH LÀ TRẮNG
                 ctx.fillStyle = "#ffffff";
-                ctx.font = "bold 14px Arial, sans-serif";
-                ctx.textAlign = "center";
-                ctx.textBaseline = "middle";
+                ctx.fillRect(0, 0, 400, 400);
 
-                // Chữ trên & dưới
-                ctx.fillText("SCAN ME", 200, 20);
-                ctx.fillText("SCAN ME", 200, 380);
+                // THIẾT KẾ 10 LOẠI VIỀN
+                switch(frameStyle) {
+                    case "1": // 1. Zalo Style
+                        ctx.fillStyle = "#092e5d"; ctx.fillRect(0, 0, 400, 400);
+                        ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 4;
+                        drawRoundRect(ctx, 20, 20, 360, 360, 15, true);
+                        ctx.fillStyle = "#092e5d";
+                        ctx.fillRect(150, 10, 100, 20); ctx.fillRect(150, 370, 100, 20);
+                        ctx.fillRect(10, 150, 20, 100); ctx.fillRect(370, 150, 20, 100);
+                        ctx.fillStyle = "#ffffff"; ctx.font = "bold 14px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+                        ctx.fillText("SCAN ME", 200, 20); ctx.fillText("SCAN ME", 200, 380);
+                        ctx.save(); ctx.translate(20, 200); ctx.rotate(-Math.PI / 2); ctx.fillText("SCAN ME", 0, 0); ctx.restore();
+                        ctx.save(); ctx.translate(380, 200); ctx.rotate(Math.PI / 2); ctx.fillText("SCAN ME", 0, 0); ctx.restore();
+                        ctx.fillStyle = "#ffffff"; drawRoundRect(ctx, 45, 45, 310, 310, 12, false);
+                        qrX = 60; qrY = 60;
+                        break;
 
-                // Chữ trái (xoay -90 độ)
-                ctx.save();
-                ctx.translate(20, 200);
-                ctx.rotate(-Math.PI / 2);
-                ctx.fillText("SCAN ME", 0, 0);
-                ctx.restore();
+                    case "2": // 2. Viền đen cổ điển
+                        ctx.fillStyle = "#1a1a1a"; drawRoundRect(ctx, 0, 0, 400, 400, 20, false);
+                        ctx.fillStyle = "#ffffff"; drawRoundRect(ctx, 20, 20, 360, 320, 12, false);
+                        ctx.fillStyle = "#ffffff"; ctx.font = "bold 24px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+                        ctx.fillText("SCAN ME", 200, 370);
+                        qrX = 60; qrY = 40; // Đẩy QR lên trên một chút
+                        break;
 
-                // Chữ phải (xoay 90 độ)
-                ctx.save();
-                ctx.translate(380, 200);
-                ctx.rotate(Math.PI / 2);
-                ctx.fillText("SCAN ME", 0, 0);
-                ctx.restore();
+                    case "3": // 3. Viền góc quét (Scanner)
+                        ctx.strokeStyle = "#007bff";
+                        drawCorners(ctx, 20, 20, 360, 360, 50, 8);
+                        ctx.fillStyle = "#000000"; ctx.font = "bold 22px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+                        ctx.fillText("SCAN ME", 200, 360);
+                        qrX = 60; qrY = 50;
+                        break;
 
-                // 6. Vẽ ô nền trắng lót cho QR Code ở trung tâm
-                ctx.fillStyle = "#ffffff";
-                drawRoundRect(ctx, 45, 45, 310, 310, 12, false);
+                    case "4": // 4. Viền nét đứt
+                        ctx.strokeStyle = "#495057"; ctx.lineWidth = 4; ctx.setLineDash([12, 10]);
+                        drawRoundRect(ctx, 15, 15, 370, 370, 15, true);
+                        ctx.setLineDash([]); // Reset nét đứt
+                        qrX = 60; qrY = 60;
+                        break;
 
-                // 7. Dán mã QR Code lên nền trắng
-                ctx.drawImage(qrCanvas, 60, 60);
+                    case "5": // 5. Khung Header (Tiêu đề trên)
+                        ctx.fillStyle = "#007bff"; drawRoundRect(ctx, 10, 10, 380, 380, 20, false);
+                        ctx.fillStyle = "#ffffff"; drawRoundRect(ctx, 10, 70, 380, 320, 20, false);
+                        ctx.fillStyle = "#ffffff"; ctx.font = "bold 22px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+                        ctx.fillText("SCAN ME", 200, 42);
+                        qrX = 60; qrY = 90; // Đẩy QR xuống dưới
+                        break;
 
-                // 8. Xử lý lồng Logo SCE vào chính giữa
+                    case "6": // 6. Khung ảnh Polaroid
+                        ctx.fillStyle = "#f4f4f4"; ctx.fillRect(0, 0, 400, 400); // Nền xám nhạt
+                        ctx.fillStyle = "#ffffff"; 
+                        ctx.shadowColor = "rgba(0,0,0,0.15)"; ctx.shadowBlur = 15; ctx.shadowOffsetY = 5;
+                        ctx.fillRect(25, 25, 350, 350); // Khung trắng nổi bật
+                        ctx.shadowColor = "transparent"; // Reset đổ bóng
+                        ctx.fillStyle = "#333333"; ctx.font = "bold 20px 'Comic Sans MS', Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+                        ctx.fillText("Scan Me!", 200, 350);
+                        qrX = 60; qrY = 45;
+                        break;
+
+                    case "7": // 7. Viền kép tinh tế
+                        ctx.strokeStyle = "#28a745"; ctx.lineWidth = 4;
+                        drawRoundRect(ctx, 10, 10, 380, 380, 15, true);
+                        ctx.lineWidth = 1;
+                        drawRoundRect(ctx, 18, 18, 364, 364, 10, true);
+                        qrX = 60; qrY = 60;
+                        break;
+
+                    case "8": // 8. Viền Gradient
+                        var grad = ctx.createLinearGradient(0, 0, 400, 400);
+                        grad.addColorStop(0, "#ff0080"); grad.addColorStop(1, "#7928ca");
+                        ctx.strokeStyle = grad; ctx.lineWidth = 10;
+                        drawRoundRect(ctx, 15, 15, 370, 370, 20, true);
+                        qrX = 60; qrY = 60;
+                        break;
+
+                    case "9": // 9. Viền bo tròn tối giản
+                        ctx.strokeStyle = "#e9ecef"; ctx.lineWidth = 20;
+                        drawRoundRect(ctx, 15, 15, 370, 370, 30, true);
+                        qrX = 60; qrY = 60;
+                        break;
+
+                    case "10": // 10. Cảnh báo đỏ
+                        ctx.fillStyle = "#dc3545"; drawRoundRect(ctx, 0, 0, 400, 400, 20, false);
+                        ctx.fillStyle = "#ffffff"; drawRoundRect(ctx, 15, 15, 370, 370, 10, false);
+                        ctx.strokeStyle = "#dc3545"; ctx.lineWidth = 3; ctx.setLineDash([6, 6]);
+                        drawRoundRect(ctx, 25, 25, 350, 350, 8, true);
+                        ctx.setLineDash([]);
+                        ctx.fillStyle = "#dc3545"; drawRoundRect(ctx, 120, 10, 160, 35, 5, false);
+                        ctx.fillStyle = "#ffffff"; ctx.font = "bold 18px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+                        ctx.fillText("QUÉT MÃ", 200, 28);
+                        qrX = 60; qrY = 60;
+                        break;
+                }
+
+                // DÁN MÃ QR LÊN TRÊN VIỀN ĐÃ VẼ
+                ctx.drawImage(qrCanvas, qrX, qrY);
+
+                // LỒNG LOGO SCE
                 if (uploadedLogoSrc) {
                     var logo = new Image();
                     logo.onload = function() {
                         var logoSize = 70; 
                         var logoPadding = 6;   
-                        var x = (finalCanvas.width - logoSize) / 2;
-                        var y = (finalCanvas.height - logoSize) / 2;
+                        var x = qrX + (280 - logoSize) / 2; // Canh giữa theo vị trí thực tế của QR code
+                        var y = qrY + (280 - logoSize) / 2; 
 
-                        // Khung trắng lót logo bo tròn góc
+                        // Khung lót trắng bo tròn
                         ctx.fillStyle = "#ffffff";
                         drawRoundRect(ctx, x - logoPadding, y - logoPadding, logoSize + logoPadding * 2, logoSize + logoPadding * 2, 8, false);
 
